@@ -1,8 +1,8 @@
 # {{NUMBER}}. {{TITLE}}
 
-- Status: Proposed
+- Status: Accepted
 - Date: {{DATE}}
-- Decided via: /solve (N independent proposals, cross-critique, independent judge)
+- Decided via: /solve (N independent proposals, cross-critique, independent judge); chosen by <user>, judge recommended <option>
 
 ## Context
 
@@ -33,7 +33,7 @@ We will ... (the winning design, stated plainly, including any ideas borrowed fr
 
 ## Rationale
 
-Why this option over the others, citing the scores, spike evidence and the critiques that decided it. If it was a close call, say so and what tipped it.
+Why this option over the others, citing the scores, spike evidence and the critiques that decided it. If it was a close call, say so and what tipped it. If the user chose differently from the judge, record their reason.
 
 ## Consequences
 

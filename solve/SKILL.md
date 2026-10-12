@@ -1,20 +1,30 @@
 ---
 name: solve
-description: Multi-agent "competing solutions" workflow for hard programming problems. Spawns 2-5 independent solver sub-agents that each attack the same problem from a different angle, verifies their work, and has a fresh judge pick a winner from the evidence. Handles CODE problems (a bug, failing behavior, algorithm or feature → a tested diff, each solver in its own git worktree) and ARCHITECTURE problems (design decisions, patterns, data models, scaling, refactoring strategy → cross-critiqued proposals and an ADR). It is expensive, so use it ONLY when the user invokes /solve or explicitly asks for several competing/alternative solutions to be produced and compared (e.g. "have a few agents try this independently and pick the best"). Do NOT use it for ordinary bug fixes, features, design questions or reviews, however hard, unless the user asks for that multi-solver process.
-argument-hint: "<problem description> [--mode code|arch] [--n 2-5]"
+description: Multi-agent "competing solutions" workflow for hard programming problems. Spawns 2-5 independent solver sub-agents that each attack the same problem from a different angle, has them critique each other, and has a fresh judge recommend one. Every option is then presented to the user, who approves which one to go with. By default solvers propose approaches without writing code; with --build they each implement and test a diff in their own git worktree. Handles CODE problems (a bug, failing behavior, algorithm or feature) and ARCHITECTURE problems (design decisions, patterns, data models, scaling, refactoring strategy → design proposals and an ADR). It is expensive, so use it ONLY when the user invokes /solve or explicitly asks for several competing/alternative approaches to be produced and compared (e.g. "have a few agents come up with different ways to fix this and pick the best"). Do NOT use it for ordinary bug fixes, features, design questions or reviews, however hard, unless the user asks for that multi-solver process.
+argument-hint: "<problem description> [--build] [--mode code|arch] [--n 2-5]"
 ---
 
-# /solve — competing solutions, evidence-based pick
+# /solve: competing solutions, evidence-based pick, user approves
 
-Several solvers work the same problem independently with deliberately different angles; you verify what they produce; a judge who wrote none of it picks. The point is to beat the single-attempt answer, so the parts that matter most are **divergence** (solvers must not converge on the same idea) and **evidence** (tests, spikes and constraint checks decide, not eloquence).
+Several solvers work the same problem independently with deliberately different angles. They critique each other, and a judge who wrote none of it recommends one. The user then sees **every** option next to the judge's verdict and approves what gets built. The point is to beat the single-attempt answer, so the parts that matter most are **divergence** (solvers must not converge on the same idea) and **evidence** (code references, experiments and tests decide, not eloquence).
 
 Input: `$ARGUMENTS`
 
-Prompt templates live next to this file (`prompts/`, `templates/`). Read the ones for the active mode when you reach the step that uses them; fill every `{{PLACEHOLDER}}` before sending.
+## Variants
+
+| | CODE (default) | CODE `--build` | ARCH |
+|---|---|---|---|
+| Solvers produce | an approach (`approach.md`), no code | a tested diff, each in its own worktree | a design proposal (`proposal.md`) with spikes |
+| Worktrees | none | yes | yes (for spikes) |
+| Evidence | code references and read-only checks | the oracle test run on every diff | spikes and constraint checks |
+| Critique round | yes | no (tests are the critique) | yes |
+| After approval | implement the chosen approach once, test-first | apply the chosen diff | write the ADR, offer implementation steps |
+
+Prompt templates live next to this file in `prompts/` and `templates/`. Read the ones for the active variant when you reach the step that uses them, and fill every `{{PLACEHOLDER}}` before sending. Angle texts for CODE are in `prompts/code-angles.md`.
 
 ## 0. Setup
 
-- Parse flags out of the input: `--mode code|arch` (else auto-detect), `--n N` (default 3; clamp to 2..5 and say so if you clamp). The rest is the problem text.
+- Parse flags out of the input: `--build`, `--mode code|arch` (else auto-detect), `--n N` (default 3; clamp to 2..5 and say so if you clamp). The rest is the problem text. `--build` only applies to CODE; if it comes with an ARCH problem, say so and ignore it.
 - Locate the repo and create a run directory inside it, excluded from git locally so it never shows up in `git status`:
   ```bash
   REPO=$(git rev-parse --show-toplevel)
@@ -30,36 +40,39 @@ Prompt templates live next to this file (`prompts/`, `templates/`). Read the one
   git -C "$REPO" branch --list 'solve/*' --format='%(refname:short)'
   ls -d "$REPO"/.claude/solve/*/ 2>/dev/null | grep -v "/$RUN_ID/"
   ```
-  If anything shows up, list it (run ids and dates; note any run dir that still holds a `solution.diff` or `judgment.md`) and ask whether to remove it. Ask rather than delete, because a leftover may be an unapplied winning diff or a `/solve` run still going in another session. To remove a run `<ID>`: `git worktree remove --force` each `.claude/solve/<ID>/wt-*`, `git branch -D` its `solve/<ID>-*` branches, then `rm -rf .claude/solve/<ID>`. Touch only paths under `.claude/solve/` and branches under `solve/`, never other worktrees or branches.
-- Not a git repo? Worktrees need one. Tell the user and ask whether to `git init` + commit a baseline, or stop. (ARCH mode can run without worktrees if no spike is needed.)
+  If anything shows up, list it (run ids and dates; note any run dir that still holds a `solution.diff`, `approach.md` or `judgment.md`) and ask whether to remove it. Ask rather than delete, because a leftover may be an unapplied winning diff or a `/solve` run still going in another session. To remove a run `<ID>`: `git worktree remove --force` each `.claude/solve/<ID>/wt-*`, `git branch -D` its `solve/<ID>-*` branches, then `rm -rf .claude/solve/<ID>`. Touch only paths under `.claude/solve/` and branches under `solve/`, never other worktrees or branches.
+- Not a git repo? The default CODE variant doesn't need one (put the run dir in a temp dir instead). `--build` and ARCH spikes need worktrees: ask whether to `git init` and commit a baseline, or to stop.
 
 ## 1. UNDERSTAND
 
-1. Investigate the codebase enough to restate the problem in 1–2 sentences and list the relevant files/modules.
-2. **Mode.** CODE = a concrete bug, failing behavior, algorithm or feature whose output is a diff. ARCH = a decision about structure, patterns, technologies, data models, scaling or refactoring strategy whose output is a design. Tell the user which mode and the one-line reason. If it genuinely could be either (e.g. "fix our slow sync" could be a patch or a redesign), ask.
-3. **Ambiguity.** If the problem is ambiguous in a way that would change the solution, ask at most 2 questions (one message, use AskUserQuestion if available). Otherwise proceed — don't ask for the sake of asking.
+1. Investigate the codebase enough to restate the problem in 1–2 sentences and list the relevant files and modules.
+2. **Mode.** CODE means a concrete bug, failing behavior, algorithm or feature. ARCH means a decision about structure, patterns, technologies, data models, scaling or refactoring strategy. Tell the user which mode, and which variant, with a one-line reason. If the problem genuinely could be either (e.g. "fix our slow sync" could be a patch or a redesign), ask.
+3. **Ambiguity.** If the problem is ambiguous in a way that would change the solution, ask at most 2 questions (one message, use AskUserQuestion if available). Otherwise proceed. Don't ask for the sake of asking.
 
-### CODE mode: establish the oracle
+### CODE (default): pin down the problem
+Solvers need a shared, concrete picture of the failure, and the implementation step needs a way to prove the fix.
+- Reproduce it: find an existing test, or run a short snippet or command that shows the wrong behavior. Show the user the command and its output. Don't add files to the repo yet; the failing test is written as the first step of implementation, once an approach is approved.
+- Write `VERIFY_PLAN`: the test(s) a correct fix must make pass, and the existing tests that must keep passing.
 
-The verification command is what makes the final pick evidence-based, so get it right before spending N agents on the problem.
+### CODE `--build`: establish the oracle
+Here the oracle test is what makes the pick evidence-based, so get it right before spending N agents on the problem.
 - Look for existing tests covering the behavior, a documented repro, or a way to run the code.
 - If nothing demonstrates the problem, write a small failing test (preferred, in the project's test framework and location) or a repro script. Show the user the file and its failing output, then continue (they can interrupt).
-- Record: `VERIFY_CMD` (fails now, must pass after), `REGRESSION_CMD` (the relevant/related existing tests; the full suite if it is fast), `REPRO_FILES`, and the baseline output of both. Note tests that already fail on HEAD so solvers aren't blamed for them.
-- A repro that fails for the wrong reason (import error, missing fixture) is not a repro. Check the failure message matches the reported bug.
+- Record `VERIFY_CMD` (fails now, must pass after), `REGRESSION_CMD` (the related existing tests, or the full suite if it is fast), `REPRO_FILES`, and the baseline output of both. Note tests that already fail on HEAD so solvers aren't blamed for them.
+- A repro that fails for the wrong reason (import error, missing fixture) is not a repro. Check that the failure message matches the reported bug.
 
-### ARCH mode: requirements and criteria — user checkpoint
-
+### ARCH: requirements and criteria (user checkpoint)
 Write `$RUN_DIR/requirements.md` containing:
-- **Functional needs**, **scale/performance** expectations, **team & codebase conventions**, **existing dependencies** worth reusing, **what must not break**.
+- **Functional needs**, **scale/performance** expectations, **team & codebase conventions**, **existing dependencies** worth reusing, and **what must not break**.
 - Mark each constraint **HARD** (violating it disqualifies a proposal) or **SOFT**.
-- **Evaluation criteria with weights** summing to 100 (e.g. simplicity 25, fit with existing code 20, scalability 15, migration risk 20, effort 20) — chosen for this problem, not a generic list.
+- **Evaluation criteria with weights** summing to 100 (e.g. simplicity 25, fit with existing code 20, scalability 15, migration risk 20, effort 20), chosen for this problem rather than a generic list.
 
-Show it to the user and **wait for approval or edits** — every later step scores against this, so a wrong weight here quietly picks the wrong design.
+Show it to the user and **wait for approval or edits**. Every later step scores against this, so a wrong weight here quietly picks the wrong design.
 
 ## 2. DIVERGE
 
-### Worktrees (CODE always; ARCH so solvers can spike)
-Worktrees branch from HEAD, so they do NOT contain uncommitted work — including a repro you just wrote. Create them yourself (explicit paths make verification and cleanup reliable) and seed each with the current state:
+### Worktrees (`--build` and ARCH only)
+Worktrees branch from HEAD, so they do NOT contain uncommitted work, including a repro you just wrote. Create them yourself (explicit paths make verification and cleanup reliable) and seed each with the current state:
 ```bash
 cd "$REPO"; git diff HEAD --binary > "$RUN_DIR/base.patch"
 for L in a b c; do                 # one letter per solver
@@ -71,12 +84,23 @@ for L in a b c; do                 # one letter per solver
   git -C "$WT" rev-parse HEAD > "$RUN_DIR/base-$L.sha"; mkdir -p "$RUN_DIR/$L"
 done
 ```
-Environment pitfalls — a worktree is a bare checkout: symlink or reinstall untracked deps (`node_modules`, `.venv`, `vendor/`, `.env`), and make sure tests import the worktree's code, not the main checkout (editable Python installs and absolute `PYTHONPATH`s point at the main tree; run from the worktree root or set `PYTHONPATH` to it). **CODE mode: run `VERIFY_CMD` in one fresh worktree before launching solvers** — it must fail the same way it does in the main tree. That proves the oracle works inside worktrees.
+A worktree is a bare checkout, which causes two common problems:
+- **Missing untracked dependencies.** Symlink or reinstall `node_modules`, `.venv`, `vendor/` and `.env`.
+- **Tests importing the main checkout.** Editable Python installs and absolute `PYTHONPATH`s point at the main tree, so run from the worktree root or set `PYTHONPATH` to it.
+
+**`--build`: run `VERIFY_CMD` in one fresh worktree before launching solvers.** It must fail the same way it does in the main tree, which proves the oracle works inside worktrees.
+
+For the default CODE variant, just `mkdir -p "$RUN_DIR"/{a,b,c}`. Solvers read the main checkout and don't edit it.
 
 ### Launch
-Read `prompts/code-solver.md` or `prompts/arch-solver.md`. Angles (full text in the prompt file) are assigned in order a, b, c, d, e:
+Prompts:
+- CODE (default): `prompts/code-plan-solver.md`
+- `--build`: `prompts/code-solver.md`
+- ARCH: `prompts/arch-solver.md`
 
-| | CODE | ARCH |
+Angles are assigned in order a, b, c, d, e:
+
+| | CODE (`prompts/code-angles.md`) | ARCH (in `prompts/arch-solver.md`) |
 |---|---|---|
 | a | minimal fix | simplest design that meets the requirements |
 | b | most robust / maintainable | most scalable / extensible |
@@ -84,60 +108,104 @@ Read `prompts/code-solver.md` or `prompts/arch-solver.md`. Angles (full text in 
 | d | reuse-first (library/stdlib/existing util) | incremental / evolutionary path |
 | e | change the data model so the bug can't exist | buy-not-build (off-the-shelf) |
 
-Launch **all solvers in a single message** (parallel `Agent` calls, general-purpose type, no `isolation` — they get their worktree path in the prompt). Give each a short name like `solver-a` so you can message it later. Pass them what you learned in step 1 (restatement, relevant files, requirements path) so they don't redo it, but never another solver's ideas. Wait until all have finished.
+Launch **all solvers in a single message**: parallel `Agent` calls, general-purpose type, no `isolation` (they get their worktree path in the prompt). Give each a short name like `solver-a` so you can message it later. Pass them what you learned in step 1 (restatement, relevant files, repro, requirements path) so they don't redo it, but never another solver's ideas. Wait until all have finished.
 
 ## 3. VERIFY
 
-### CODE mode
+### CODE (default)
+Check each `approach.md`'s load-bearing claims:
+- Do the cited `path:line`s exist and say what the approach claims?
+- Does the diagnosis match the repro?
+- Where solvers disagree on the cause, find out who's right: read the code, or run the repro once.
+
+Disqualify an approach that doesn't solve the stated problem or rests on a false claim about the code, and record why. Write `$RUN_DIR/verification.md`. If all are disqualified, report what each proposed and why it fails, and suggest a next step. Stop there.
+
+### CODE `--build`
 For each solver, in its worktree:
 ```bash
 git -C "$WT" add -A && git -C "$WT" diff --cached "$(cat $RUN_DIR/base-$L.sha)" > "$RUN_DIR/$L/solution.diff"
 ```
-Then restore the canonical repro files over the solver's copy (a solver that edited the test to pass must not get credit — flag it if the diff touches them), and run `VERIFY_CMD` and `REGRESSION_CMD` from the worktree. Save outputs to `$RUN_DIR/$L/verify.txt`. A solution **fails** if the repro still fails, it introduces a regression vs. baseline, the diff is empty, or it only passes by special-casing the test input. Record the reason for each failure.
+Then restore the canonical repro files over the solver's copy. A solver that edited the test to pass must not get credit, so flag it if the diff touches them. Run `VERIFY_CMD` and `REGRESSION_CMD` from the worktree and save the outputs to `$RUN_DIR/$L/verify.txt`.
 
-**All failed?** Skip judging. Report what each tried, why it failed, the most informative failure, and a concrete next step (a better repro, a narrower problem, a specific hypothesis to test). Then clean up (step 6).
+A solution **fails** if any of these hold, and you record the reason:
+- the repro still fails
+- it introduces a regression vs. baseline
+- the diff is empty
+- it only passes by special-casing the test input
 
-### ARCH mode
-Check every proposal (`$RUN_DIR/$L/proposal.md`) against each HARD constraint in `requirements.md`. Disqualify violators, with the reason. For each key claim, mark it **evidence** (a spike ran; output in the report — re-run it if it's cheap and decisive) or **assumption** (asserted, untested). Write `$RUN_DIR/verification.md`. If all are disqualified, report why and propose what to relax or investigate; stop.
+**All failed?** Skip judging. Report what each tried, why it failed, the most informative failure, and a concrete next step (a better repro, a narrower problem, a specific hypothesis to test). Then clean up.
 
-## 4. CRITIQUE (ARCH mode only)
+### ARCH
+Check every proposal (`$RUN_DIR/$L/proposal.md`) against each HARD constraint in `requirements.md`, and disqualify violators with the reason. Mark each key claim:
+- **evidence**: a spike ran and its output is in the report. Re-run it if that's cheap and decisive.
+- **assumption**: asserted, untested.
 
-Each surviving solver reviews the others: read `prompts/arch-critique.md` and send it to every solver via `SendMessage` (continuing it keeps its own investigation in context). If messaging a finished agent isn't possible, spawn one fresh agent per solver, telling it which proposal is "its own". Send all in one message; wait for all. Output: `$RUN_DIR/$L/critique.md`. One strong, specific objection per proposal beats a list of nitpicks — the prompt says so.
+Write `$RUN_DIR/verification.md`. If all are disqualified, report why and propose what to relax or investigate. Stop there.
+
+## 4. CRITIQUE (CODE default and ARCH)
+
+Each surviving solver reviews the others. Read `prompts/critique.md` and send it to every solver via `SendMessage`; continuing a solver keeps its own investigation in context. If messaging a finished agent isn't possible, spawn one fresh agent per solver and tell it which solution is "its own". Send all in one message and wait for all. Output goes to `$RUN_DIR/$L/critique.md`.
 
 ## 5. JUDGE
 
-Spawn **one fresh agent** that wrote none of the solutions, using `prompts/code-judge.md` or `prompts/arch-judge.md`. Give it file paths, not pasted content: problem restatement, the diffs/proposals, verification results (including disqualified ones and why), and for ARCH the requirements with weights and all critiques. Don't share your own preference. The judge may declare a **close call** instead of a forced pick and must say what would decide it. With a single survivor the judge still reviews it — it can reject it.
+Spawn **one fresh agent** that wrote none of the solutions. Prompts:
+- CODE (default): `prompts/code-plan-judge.md`
+- `--build`: `prompts/code-judge.md`
+- ARCH: `prompts/arch-judge.md`
 
-## 6. REPORT
+Give it file paths, not pasted content: the problem restatement, the solutions, verification results (including disqualified ones and why), the critiques, and for ARCH the weighted requirements. Don't share your own preference. The judge may declare a **close call** instead of forcing a pick, and must then say what would decide it. With a single survivor the judge still reviews it, and can reject it.
 
-### CODE mode
+## 6. PRESENT ALL AND GET APPROVAL
+
+The user decides, not the judge. Show **every** solution (disqualified ones included, briefly) next to the judge's verdict, in one view:
+
 ```
-## /solve result — <one-line problem>
-Mode: CODE (<why>) · Solvers: N · Verified by: `VERIFY_CMD`
+## /solve: <one-line problem>
+Mode: CODE · approaches only | CODE · --build | ARCH · Solvers: N · Judge: WINNER <L> | CLOSE CALL <L1> vs <L2>
 
-**Winner: <label> — <angle>**  (confidence x/10, judge's verdict)
-<2–4 sentences: what it does and why it won>
-<diff stat, and the diff itself if short (< ~60 lines)>
+### a: <angle>: <one-line summary>          [judge's pick] / [disqualified: reason]
+<2–4 sentences: what it changes and where (`path:line`), and why that fixes it>
++ <its main strength>
+− <its strongest objection, from the critiques or the judge>
+Size: S/M/L · Confidence: N/10 · <--build: Verify pass/FAIL · diffstat> <ARCH: score NN/100>
+
+### b: ...
+
+### Judge's recommendation: <L>
+<3–5 sentences: why. If it's a close call, say what decides it.>
 Borrow from runners-up: <specific ideas, or "none">
-
-| Solver | Angle | Verify | Why it lost |
-|---|---|---|---|
-| b | robust | pass | <one line> |
-| c | root cause | FAIL: <reason> | — |
-
-Disagreements: <where the judge and solver confidences/claims conflicted, or "none">
-Convergence: <solvers that independently landed on the same approach despite different angles, or "none">
+Convergence: <solvers that independently landed on the same idea despite different angles, or "none">
 ```
-Convergence is worth reporting either way: independent agreement raises confidence in that approach, but it also means the comparison covered fewer real alternatives than N suggests.
-If it's a close call, present both with the deciding question instead of a winner. Then **ask before applying**: `git apply "$RUN_DIR/<L>/solution.diff"` onto the user's working tree (the base changes, e.g. the repro test, are already there). If they want borrowed ideas folded in, make those edits after applying and re-run `VERIFY_CMD`.
 
-### ARCH mode
-Write an ADR. Find where the repo keeps decisions (`docs/decisions/`, `docs/adr/`, `doc/adr/`, `adr/`, `architecture/decisions/`) and follow its numbering and format; otherwise use `docs/decisions/NNNN-<slug>.md` with `templates/adr.md`. Status `Proposed` — the user accepts it, not you. Summarize in chat: decision, runner-up, the 1–2 objections that mattered, scores table, link to the ADR. Then **offer to break the chosen design into implementation steps**, each written as a self-contained `/solve --mode code …` prompt the user can run later.
+Convergence is worth reporting either way. Independent agreement raises confidence in an idea, but it also means the comparison covered fewer real alternatives than N suggests. Each solver's full write-up is in `$RUN_DIR/<L>/`; point to it.
 
-### Cleanup (both modes, always — including after failure or abort)
-Save anything still needed (diffs are in `$RUN_DIR`) before removing worktrees, then:
+Then ask with AskUserQuestion in one call:
+1. **Which one?** One option per solution, with the judge's pick first and marked "(Recommended)". With more than 4 solutions, show the top 3 and let "Other" cover the rest or a combination ("b, plus c's test for X").
+2. **What next?** Choices depend on the variant:
+   - CODE (default): "Implement it now" / "Just keep the plan"
+   - `--build`: "Apply the diff to my working tree" / "Don't apply"
+   - ARCH: "Write the ADR and break it into steps" / "Write the ADR only"
+
+## 7. AFTER APPROVAL
+
+- **CODE (default), implement:**
+  1. Write the failing test from `VERIFY_PLAN` and show it failing.
+  2. Implement the approved approach, plus any borrowed ideas, in the user's working tree.
+  3. Run the tests and show the diff.
+  4. Don't commit unless asked.
+  If implementation reveals the approach was wrong, stop and say so rather than silently switching approaches.
+- **CODE (default), keep the plan:** print the approved approach in full and offer to save it as a file.
+- **`--build`, apply:** `git apply "$RUN_DIR/<L>/solution.diff"` onto the working tree (the base changes, e.g. the repro test, are already there). Fold in any borrowed ideas, then re-run `VERIFY_CMD`.
+- **ARCH:**
+  1. Write the ADR. Find where the repo keeps decisions (`docs/decisions/`, `docs/adr/`, `doc/adr/`, `adr/`, `architecture/decisions/`) and follow its numbering and format. Otherwise use `docs/decisions/NNNN-<slug>.md` with `templates/adr.md`.
+  2. Record the option the user chose as the decision, with status `Accepted`. If they overrode the judge, say so and give their reason in the rationale.
+  3. If they asked for steps, write each implementation step as a self-contained `/solve --mode code …` prompt they can run later.
+
+## Cleanup (always, including after failure or abort)
+
+Save anything still needed before removing worktrees (diffs are in `$RUN_DIR`). If the run created worktrees:
 ```bash
 for L in a b c; do git -C "$REPO" worktree remove --force "$RUN_DIR/wt-$L"; git -C "$REPO" branch -D "solve/$RUN_ID-$L"; done
 git -C "$REPO" worktree prune
 ```
-After the user has decided about applying, delete `$RUN_DIR` (mention it first if they might want the losing diffs). Confirm `git worktree list` and `git branch --list 'solve/*'` show nothing left from this run.
+After the user's decision has been carried out, delete `$RUN_DIR` (mention it first if they might want the other solutions' write-ups or diffs). Confirm that `git worktree list` and `git branch --list 'solve/*'` show nothing left from this run.
