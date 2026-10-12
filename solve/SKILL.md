@@ -46,7 +46,23 @@ Prompt templates live next to this file in `prompts/` and `templates/`. Read the
 ## 1. UNDERSTAND
 
 1. Investigate the codebase enough to restate the problem in 1–2 sentences and list the relevant files and modules.
-2. **Mode.** CODE means a concrete bug, failing behavior, algorithm or feature. ARCH means a decision about structure, patterns, technologies, data models, scaling or refactoring strategy. Tell the user which mode, and which variant, with a one-line reason. If the problem genuinely could be either (e.g. "fix our slow sync" could be a patch or a redesign), ask.
+2. **Mode.** CODE means a concrete bug, failing behavior, algorithm or feature. ARCH means a decision about structure, patterns, technologies, data models, scaling or refactoring strategy. Tell the user which mode, and which variant, with a one-line reason.
+
+   The difference that matters: in CODE the problem defines success, so fixed criteria work. In ARCH there are several valid answers, so the user's priorities must be written down first. For borderline requests, ask yourself:
+   - **Is the correct outcome known and testable?** ("returns X instead of Y", "crashes on empty input") → leans CODE.
+   - **Would the answer introduce a new technology, data model, persistence layer, or module/service boundary, or change one many callers depend on?** → leans ARCH.
+   - **Does choosing between reasonable answers require the user's priorities** (cost vs. simplicity vs. scale vs. migration risk)? → leans ARCH.
+
+   Investigate before answering these; the code often settles it. For example, a slow endpoint caused by one missing index is CODE, while one slow because of the data model is ARCH. If the answers point in different directions, or you can't tell without the user's priorities, ask. Borderline examples:
+
+   | Request | Mode | Why |
+   |---|---|---|
+   | "`/report` takes 8 s" (one N+1 query found) | CODE | outcome testable (fast enough), fix is local |
+   | "`/report` takes 8 s" (whole table scanned per request because of how events are stored) | ARCH | fixing it means changing the data model |
+   | "Add retry to the HTTP client" | CODE | a feature with clear behavior, inside one module |
+   | "Add caching to the API client" | ask | could be a small memoization (CODE) or an invalidation strategy shared across services (ARCH); depends on scope and priorities |
+   | "Split `utils.py`, it's 3000 lines" | ARCH | refactoring strategy: the new module boundaries are the decision |
+   | "Rename `get_user` to `fetch_user` everywhere" | CODE | mechanical, outcome checkable |
 3. **Ambiguity.** If the problem is ambiguous in a way that would change the solution, ask at most 2 questions (one message, use AskUserQuestion if available). Otherwise proceed. Don't ask for the sake of asking.
 
 ### CODE (default): pin down the problem
