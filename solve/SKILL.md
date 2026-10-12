@@ -23,6 +23,14 @@ Prompt templates live next to this file (`prompts/`, `templates/`). Read the one
   EXCL="$(git rev-parse --path-format=absolute --git-common-dir)/info/exclude"; mkdir -p "$(dirname "$EXCL")"
   grep -qxF '.claude/solve/' "$EXCL" 2>/dev/null || echo '.claude/solve/' >> "$EXCL"
   ```
+- **Leftovers from earlier runs.** An interrupted run (Ctrl-C, crashed session) can leave worktrees, branches and run dirs behind. Check before creating new ones:
+  ```bash
+  git -C "$REPO" worktree prune
+  git -C "$REPO" worktree list --porcelain | sed -n 's/^worktree //p' | grep '/\.claude/solve/'
+  git -C "$REPO" branch --list 'solve/*' --format='%(refname:short)'
+  ls -d "$REPO"/.claude/solve/*/ 2>/dev/null | grep -v "/$RUN_ID/"
+  ```
+  If anything shows up, list it (run ids and dates; note any run dir that still holds a `solution.diff` or `judgment.md`) and ask whether to remove it. Ask rather than delete, because a leftover may be an unapplied winning diff or a `/solve` run still going in another session. To remove a run `<ID>`: `git worktree remove --force` each `.claude/solve/<ID>/wt-*`, `git branch -D` its `solve/<ID>-*` branches, then `rm -rf .claude/solve/<ID>`. Touch only paths under `.claude/solve/` and branches under `solve/`, never other worktrees or branches.
 - Not a git repo? Worktrees need one. Tell the user and ask whether to `git init` + commit a baseline, or stop. (ARCH mode can run without worktrees if no spike is needed.)
 
 ## 1. UNDERSTAND
