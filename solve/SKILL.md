@@ -118,7 +118,9 @@ Borrow from runners-up: <specific ideas, or "none">
 | c | root cause | FAIL: <reason> | — |
 
 Disagreements: <where the judge and solver confidences/claims conflicted, or "none">
+Convergence: <solvers that independently landed on the same approach despite different angles, or "none">
 ```
+Convergence is worth reporting either way: independent agreement raises confidence in that approach, but it also means the comparison covered fewer real alternatives than N suggests.
 If it's a close call, present both with the deciding question instead of a winner. Then **ask before applying**: `git apply "$RUN_DIR/<L>/solution.diff"` onto the user's working tree (the base changes, e.g. the repro test, are already there). If they want borrowed ideas folded in, make those edits after applying and re-run `VERIFY_CMD`.
 
 ### ARCH mode

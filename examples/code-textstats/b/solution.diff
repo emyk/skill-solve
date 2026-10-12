@@ -1,0 +1,86 @@
+diff --git a/tests/test_tokenize.py b/tests/test_tokenize.py
+new file mode 100644
+index 0000000..06e5469
+--- /dev/null
++++ b/tests/test_tokenize.py
+@@ -0,0 +1,52 @@
++from textstats import average_word_length, word_frequencies
++from textstats.tokenize import tokenize
++
++
++def test_strips_surrounding_punctuation():
++    assert tokenize('"Hello," she said. (Really?!)') == ["hello", "she", "said", "really"]
++
++
++def test_punctuation_only_text_has_no_words():
++    assert tokenize("... -- !? ---") == []
++
++
++def test_keeps_internal_apostrophes_and_hyphens():
++    assert tokenize("Don't stop, it's well-known rock'n'roll") == [
++        "don't", "stop", "it's", "well-known", "rock'n'roll",
++    ]
++
++
++def test_typographic_apostrophe_is_kept_inside_words():
++    assert tokenize("it’s") == ["it’s"]
++
++
++def test_leading_and_trailing_joiners_are_dropped():
++    assert tokenize("'quoted' -dash- end-") == ["quoted", "dash", "end"]
++
++
++def test_punctuation_without_spaces_separates_words():
++    assert tokenize("one,two...three") == ["one", "two", "three"]
++
++
++def test_numbers_are_words():
++    assert tokenize("Room 101, floor 3.") == ["room", "101", "floor", "3"]
++
++
++def test_non_ascii_letters_are_words():
++    assert tokenize("Café, naïve! Øl.") == ["café", "naïve", "øl"]
++
++
++def test_underscores_are_not_word_characters():
++    assert tokenize("snake_case") == ["snake", "case"]
++
++
++def test_average_word_length_ignores_punctuation():
++    assert average_word_length("Hi! Bye.") == 2.5
++
++
++def test_average_word_length_of_punctuation_only_text():
++    assert average_word_length("?!") == 0.0
++
++
++def test_frequencies_merge_case_and_punctuation_variants():
++    assert word_frequencies("Hello. hello, HELLO!")["hello"] == 3
+diff --git a/textstats/tokenize.py b/textstats/tokenize.py
+index d3970d5..317022e 100644
+--- a/textstats/tokenize.py
++++ b/textstats/tokenize.py
+@@ -1,6 +1,21 @@
+ """Turn raw text into a list of words."""
+ 
++import re
++
++# A word is a run of letters/digits (any script; underscore excluded), optionally
++# joined to further runs by a single internal apostrophe or hyphen, so that
++# "don't", "rock'n'roll" and "well-known" stay whole. Everything else --
++# surrounding punctuation, quotes, dashes standing alone, underscores -- is a
++# separator and never part of a word.
++_WORD_CHARS = r"[^\W_]+"
++_JOINERS = r"['’-]"  # ASCII apostrophe, typographic apostrophe, hyphen
++_WORD_RE = re.compile(rf"{_WORD_CHARS}(?:{_JOINERS}{_WORD_CHARS})*")
++
+ 
+ def tokenize(text):
+-    """Split text into lowercase words."""
+-    return text.lower().split()
++    """Split text into lowercase words, dropping punctuation.
++
++    >>> tokenize("Hello, world! Don't stop - it's well-known.")
++    ['hello', 'world', "don't", 'stop', "it's", 'well-known']
++    """
++    return _WORD_RE.findall(text.lower())

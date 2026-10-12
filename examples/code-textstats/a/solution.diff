@@ -1,0 +1,16 @@
+diff --git a/textstats/tokenize.py b/textstats/tokenize.py
+index d3970d5..94d99d2 100644
+--- a/textstats/tokenize.py
++++ b/textstats/tokenize.py
+@@ -1,6 +1,9 @@
+ """Turn raw text into a list of words."""
+ 
++import string
++
+ 
+ def tokenize(text):
+-    """Split text into lowercase words."""
+-    return text.lower().split()
++    """Split text into lowercase words, ignoring surrounding punctuation."""
++    words = (w.strip(string.punctuation) for w in text.lower().split())
++    return [w for w in words if w]

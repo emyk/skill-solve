@@ -1,0 +1,54 @@
+diff --git a/tests/test_tokenize.py b/tests/test_tokenize.py
+new file mode 100644
+index 0000000..8ab30a1
+--- /dev/null
++++ b/tests/test_tokenize.py
+@@ -0,0 +1,28 @@
++from textstats import average_word_length
++from textstats.tokenize import tokenize
++
++
++def test_strips_surrounding_punctuation():
++    assert tokenize('"Hello," she said... (quietly)!') == ["hello", "she", "said", "quietly"]
++
++
++def test_punctuation_between_words_without_spaces_splits_them():
++    assert tokenize("one,two;three") == ["one", "two", "three"]
++
++
++def test_keeps_internal_apostrophes_and_hyphens():
++    assert tokenize("Don't stop, well-known rock’n’roll") == [
++        "don't", "stop", "well-known", "rock’n’roll",
++    ]
++
++
++def test_dangling_hyphens_and_quotes_are_not_words():
++    assert tokenize("-- 'quoted' - x-") == ["quoted", "x"]
++
++
++def test_non_ascii_letters_and_digits_are_words():
++    assert tokenize("Café 42 naïve") == ["café", "42", "naïve"]
++
++
++def test_punctuation_does_not_inflate_average_word_length():
++    assert average_word_length("ab, abcd!") == 3.0
+diff --git a/textstats/tokenize.py b/textstats/tokenize.py
+index d3970d5..55d042c 100644
+--- a/textstats/tokenize.py
++++ b/textstats/tokenize.py
+@@ -1,6 +1,13 @@
+ """Turn raw text into a list of words."""
+ 
++import re
++
++# A word is a run of letters or digits, optionally joined by a single
++# apostrophe or hyphen ("don't", "well-known"). Everything else, including
++# punctuation and whitespace, separates words and is never part of one.
++_WORD = re.compile(r"[^\W_]+(?:['’-][^\W_]+)*")
++
+ 
+ def tokenize(text):
+-    """Split text into lowercase words."""
+-    return text.lower().split()
++    """Return the lowercase words in text, without surrounding punctuation."""
++    return _WORD.findall(text.lower())
