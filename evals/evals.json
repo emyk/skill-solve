@@ -1,0 +1,19 @@
+{
+  "skill_name": "solve",
+  "evals": [
+    {
+      "id": 1,
+      "name": "code-punctuation-tokenizer",
+      "prompt": "/solve top_words(\"Hello, world! Hello.\") gives [('hello,', 1), ('world!', 1), ('hello.', 1)] instead of [('hello', 2), ('world', 1)]",
+      "expected_output": "CODE mode detected; failing repro test written and shown; 3 solvers in separate worktrees with distinct angles; independent verification of each diff; fresh judge picks a winner; report table; asks before applying; worktrees and solve/* branches removed.",
+      "files": ["fixtures/textstats-repo"]
+    },
+    {
+      "id": 2,
+      "name": "arch-todo-storage-multiuser",
+      "prompt": "/solve The todo CLI rewrites the whole ~/.todo.json on every add/complete; with ~50k tasks each command takes about a second. We also want several users on the same machine to share one task list without clobbering each other's writes. How should we restructure the storage layer?",
+      "expected_output": "ARCH mode detected; requirements with HARD/SOFT constraints and weighted criteria shown for approval; 3 proposals with Mermaid diagrams, migration paths, spikes measuring performance/concurrency; cross-critique round; fresh judge scores against weights; ADR written to docs/decisions/; offer of /solve --mode code implementation steps; worktrees cleaned up.",
+      "files": ["fixtures/todo-repo"]
+    }
+  ]
+}
