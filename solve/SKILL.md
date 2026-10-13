@@ -9,6 +9,14 @@ argument-hint: "<problem description> [--build] [--mode code|arch] [--light|--fu
 Several solvers work the same problem independently with deliberately different angles. They critique each other, and a judge who wrote none of it recommends one. The user then sees **every** option next to the judge's verdict and approves what gets built. The point is to beat the single-attempt answer, so the parts that matter most are **divergence** (solvers must not converge on the same idea) and **evidence** (code references, experiments and tests decide, not eloquence).
 
 Input: `$ARGUMENTS`
+(If the input above is empty or still reads as a literal placeholder, the problem is the user's message that invoked this skill.)
+
+**Tools.** This skill runs in Claude Code and in GitHub Copilot agent mode (VS Code, JetBrains). Where it names a tool, use your equivalent:
+- **`Agent`** (spawn a subagent) means `runSubagent` or Copilot's subagent tool.
+- **`SendMessage`** (resume a finished subagent) has no Copilot equivalent; use the fresh-agent fallback in step 4.
+- **`AskUserQuestion`**: if you don't have it, ask in chat as a short numbered list of options and wait for the reply.
+
+If subagents can't run in parallel, run them one after another. They must still be independent: never show one solver another's work before the critique step.
 
 ## Variants
 
@@ -212,7 +220,7 @@ Convergence: <solvers that independently landed on the same idea despite differe
 
 Convergence is worth reporting either way. Independent agreement raises confidence in an idea, but it also means the comparison covered fewer real alternatives than N suggests. Each solver's full write-up is in `$RUN_DIR/<L>/`; point to it.
 
-Then ask with AskUserQuestion in one call:
+Then ask, with AskUserQuestion in one call if you have it, otherwise as one short numbered question in chat, and wait for the answer:
 1. **Which one?** One option per solution, with the judge's pick first and marked "(Recommended)". With more than 4 solutions, show the top 3 and let "Other" cover the rest or a combination ("b, plus c's test for X").
 2. **What next?** Choices depend on the variant:
    - CODE (default): "Implement it now" / "Just keep the plan"
