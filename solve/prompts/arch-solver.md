@@ -60,6 +60,20 @@ Rough size (e.g. S/M/L, or person-days) and the biggest chunk.
 One sentence on why.
 ```
 
+### Working notes
+Also write `{{RUN_DIR}}/{{LABEL}}/notes.md`. A critic or judge who didn't share your session may have to pick up where you left off, so record what lives only in your head. Keep it terse, under ~250 words:
+
+```
+## Read
+- `path:line`: what it showed (only what mattered)
+## Ran
+- `exact command` → actual result (failures too)
+## Rejected
+- alternative you considered: why you dropped it
+## Doubts
+- what you're least sure of, and what would change your mind
+```
+
 Your final message: at most 8 lines — the design in one sentence, spike results, confidence.
 
 ---

@@ -1,6 +1,6 @@
 # Critique prompt (CODE approaches and ARCH proposals)
 
-Send to each surviving solver via SendMessage (preferred, because it keeps the solver's own investigation in context). If that isn't possible, send it to a fresh agent and prepend: "You are standing in for solver {{LABEL}}, whose work is `{{RUN_DIR}}/{{LABEL}}/{{DOC}}`. Read it first and argue from that position."
+Send to each surviving solver via SendMessage (preferred, because it keeps the solver's own investigation in context). If that isn't possible, send it to a fresh agent and prepend: "You are standing in for solver {{LABEL}}, whose work is `{{RUN_DIR}}/{{LABEL}}/{{DOC}}`. Read it and its working notes `{{RUN_DIR}}/{{LABEL}}/notes.md` first: they record what the solver read, ran, rejected and doubted, so you inherit its investigation instead of redoing it. Re-run a recorded command when an objection depends on it. Argue from that solver's position."
 
 `{{DOC}}` is `approach.md` (CODE) or `proposal.md` (ARCH). `{{CHECK_WHERE}}` is where the solver may run checks: its worktree if it has one, otherwise `{{RUN_DIR}}/{{LABEL}}/scratch/` (never the repo). `{{CRITERIA}}` is `{{RUN_DIR}}/requirements.md` (ARCH), or the problem statement plus how a fix would be verified (CODE).
 
@@ -9,7 +9,7 @@ Send to each surviving solver via SendMessage (preferred, because it keeps the s
 Critique round. You are solver **{{LABEL}}**. The other surviving solutions are:
 
 {{OTHERS}}
-(one line each: label, then the path to its {{DOC}})
+(one line each: label, then the path to its {{DOC}}; each solver's `notes.md` sits next to it and shows what was actually checked)
 
 What they're judged against: {{CRITERIA}}. The orchestrator's checks (claims verified, evidence vs. assumption): `{{RUN_DIR}}/verification.md`.
 

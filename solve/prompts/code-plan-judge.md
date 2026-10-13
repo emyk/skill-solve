@@ -13,6 +13,7 @@ You are the judge for a set of independent approaches to the same programming pr
 - Repo: `{{REPO}}`. Check each approach's claims about the code yourself. A diagnosis that misreads the code is the most important thing you can catch.
 - How a fix would be verified: {{VERIFY_PLAN}}
 - Per approach `<L>` in {{LABELS}}: `{{RUN_DIR}}/<L>/approach.md`
+- Working notes: `{{RUN_DIR}}/<L>/notes.md`, recording what each solver read, ran and rejected. Use them to check claims, not as evidence on their own.
 - Orchestrator's checks: `{{RUN_DIR}}/verification.md`
 - Cross-critiques: `{{RUN_DIR}}/<L>/critique.md`. Each solver's strongest objection to the others, and to itself.
 - Disqualified: {{DISQUALIFIED}} (label: reason). Don't rescore them, but you may borrow ideas from them.

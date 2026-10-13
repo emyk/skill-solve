@@ -13,7 +13,7 @@ Input: `$ARGUMENTS`
 
 **Tools.** This skill runs in Claude Code and in GitHub Copilot agent mode (VS Code, JetBrains). Where it names a tool, use your equivalent:
 - **`Agent`** (spawn a subagent) means `runSubagent` or Copilot's subagent tool.
-- **`SendMessage`** (resume a finished subagent) has no Copilot equivalent; use the fresh-agent fallback in step 4.
+- **`SendMessage`** (resume a finished subagent) has no Copilot equivalent; use the fresh-agent fallback in step 4, which reads each solver's `notes.md` to recover its context.
 - **`AskUserQuestion`**: if you don't have it, ask in chat as a short numbered list of options and wait for the reply.
 
 If subagents can't run in parallel, run them one after another. They must still be independent: never show one solver another's work before the critique step.
@@ -23,6 +23,7 @@ If subagents can't run in parallel, run them one after another. They must still 
 | | CODE (default) | CODE `--build` | ARCH |
 |---|---|---|---|
 | Solvers produce | an approach (`approach.md`), no code | a tested diff, each in its own worktree | a design proposal (`proposal.md`) with spikes |
+| Plus, always | working notes (`notes.md`): what was read, run, rejected, doubted | same | same |
 | Worktrees | none | yes | full depth: yes (for spikes); light: only if a spike is needed |
 | Evidence | code references and read-only checks | the oracle test run on every diff | spikes and constraint checks |
 | Critique round | yes | no (tests are the critique) | yes |
@@ -189,7 +190,7 @@ Write `$RUN_DIR/verification.md`. If all are disqualified, report why and propos
 
 ## 4. CRITIQUE (CODE default and ARCH)
 
-Each surviving solver reviews the others. Read `prompts/critique.md` and send it to every solver via `SendMessage`; continuing a solver keeps its own investigation in context. If messaging a finished agent isn't possible, spawn one fresh agent per solver and tell it which solution is "its own". Send all in one message and wait for all. Output goes to `$RUN_DIR/$L/critique.md`.
+Each surviving solver reviews the others. Read `prompts/critique.md` and send it to every solver via `SendMessage`; continuing a solver keeps its own investigation in context. If messaging a finished agent isn't possible (e.g. in Copilot), spawn one fresh agent per solver, tell it which solution is "its own", and have it read that solver's `notes.md` first. The notes carry over what the solver read, ran and rejected, so the critic doesn't start cold. Send all in one message and wait for all. Output goes to `$RUN_DIR/$L/critique.md`.
 
 ## 5. JUDGE
 

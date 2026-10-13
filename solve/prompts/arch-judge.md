@@ -14,6 +14,7 @@ You are the judge for a set of independent design proposals for the same archite
 - `{{RUN_DIR}}/requirements.md` — constraints (HARD/SOFT) and **weighted criteria**. These are the user's priorities; score against them, not your own.
 - `{{RUN_DIR}}/verification.md` — HARD-constraint checks and which claims are evidence vs. assumption.
 - Per proposal `<L>` in {{LABELS}}: `{{RUN_DIR}}/<L>/proposal.md`
+- Working notes: `{{RUN_DIR}}/<L>/notes.md`, recording what each solver read, ran (spike commands) and rejected. Use them to check claims, not as evidence on their own.
 - Cross-critiques: `{{RUN_DIR}}/<L>/critique.md` — each solver's strongest objection to the others, and to itself.
 - Disqualified: {{DISQUALIFIED}} (label — reason). Don't rescore them, but you may borrow ideas from them.
 

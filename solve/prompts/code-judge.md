@@ -16,6 +16,7 @@ You are the judge for a competition between independent solutions to the same pr
   - `{{RUN_DIR}}/<L>/solution.diff` — the actual change (authoritative)
   - `{{RUN_DIR}}/<L>/report.md` — the solver's own account (a claim, not evidence)
   - `{{RUN_DIR}}/<L>/verify.txt` — the orchestrator's independent test run
+- Working notes: `{{RUN_DIR}}/<L>/notes.md`, recording what each solver read, ran and rejected.
 - Already disqualified: {{DISQUALIFIED}} (label — reason). Don't rescore them, but you may borrow ideas from them.
 
 ## Criteria

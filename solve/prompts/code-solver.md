@@ -49,5 +49,19 @@ What could break, blast radius, assumptions you couldn't verify.
 One sentence on why.
 ```
 
+### Working notes
+Also write `{{RUN_DIR}}/{{LABEL}}/notes.md`. A critic or judge who didn't share your session may have to pick up where you left off, so record what lives only in your head. Keep it terse, under ~250 words:
+
+```
+## Read
+- `path:line`: what it showed (only what mattered)
+## Ran
+- `exact command` → actual result (failures too)
+## Rejected
+- alternative you considered: why you dropped it
+## Doubts
+- what you're least sure of, and what would change your mind
+```
+
 Don't paste the diff — the orchestrator takes it from your worktree. Your final message: at most 8 lines — approach in one sentence, test outcome, confidence.
 
