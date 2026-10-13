@@ -34,7 +34,7 @@ Prompt templates live next to this file in `prompts/` and `templates/`. Read the
 ## 0. Setup
 
 - Parse flags out of the input: `--build`, `--mode code|arch` (else auto-detect), `--n N` (default 3, or 2 at ARCH light depth; clamp to 2..5 and say so if you clamp). The rest is the problem text. `--build` only applies to CODE; if it comes with an ARCH problem, say so and ignore it. `--light` / `--full` force the ARCH depth (see below).
-- **Solver letters.** `LABELS` is the first N letters of `a b c d e` (default `a b c`). At ARCH light depth the order is `a c b d e`, so the default is `a c`. Mode and depth are only settled in step 1, so once they are, rewrite the `LABELS=` line in `run.env` if it changed. Every later step reads it from there.
+- **Solver letters.** `LABELS` is the first N letters of `a b c d e` (default `a b c`). At ARCH light depth the order is `a c b d e`, so the default is `a c`. Mode and depth are only settled in step 1, so once they are, rewrite the `LABELS=` line in `run.env` if it changed, and re-source `run.env` before using `$LABELS` again: a shell that already loaded it keeps the old value. Every later step reads it from there.
 - Locate the repo and create a run directory inside it, excluded from git locally so it never shows up in `git status`:
   ```bash
   REPO=$(git rev-parse --show-toplevel)
