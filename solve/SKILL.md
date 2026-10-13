@@ -24,7 +24,7 @@ Prompt templates live next to this file in `prompts/` and `templates/`. Read the
 
 ## 0. Setup
 
-- Parse flags out of the input: `--build`, `--mode code|arch` (else auto-detect), `--n N` (default 3; clamp to 2..5 and say so if you clamp). The rest is the problem text. `--build` only applies to CODE; if it comes with an ARCH problem, say so and ignore it. `--light` / `--full` force the ARCH depth (see below).
+- Parse flags out of the input: `--build`, `--mode code|arch` (else auto-detect), `--n N` (default 3, or 2 at ARCH light depth; clamp to 2..5 and say so if you clamp). The rest is the problem text. `--build` only applies to CODE; if it comes with an ARCH problem, say so and ignore it. `--light` / `--full` force the ARCH depth (see below).
 - Locate the repo and create a run directory inside it, excluded from git locally so it never shows up in `git status`:
   ```bash
   REPO=$(git rev-parse --show-toplevel)
@@ -86,6 +86,7 @@ Say which one and why in the same line as the mode, e.g. "ARCH (light): splittin
 
 | | Light | Full |
 |---|---|---|
+| Solvers (unless `--n`) | 2: angles a (simplest) and c (different in kind). Add b (scalable) as a third only if the requirements name a growth axis (load, data volume, team size, new variants). | 3: a, b, c |
 | Requirements | 3–5 constraints and 2–4 weighted criteria, shown inline in chat, with one quick confirm | `requirements.md` as below, with the user approving it |
 | Proposal length | under half a page (~300 words) | 1–2 pages |
 | Diagram | only if it says more than a list | required |
@@ -130,7 +131,7 @@ Prompts:
 - `--build`: `prompts/code-solver.md`
 - ARCH: `prompts/arch-solver.md`
 
-Angles are assigned in order a, b, c, d, e:
+Angles are assigned in order a, b, c, d, e, except at ARCH light depth, which uses a, c, then b, d, e (see the depth table):
 
 | | CODE (`prompts/code-angles.md`) | ARCH (in `prompts/arch-solver.md`) |
 |---|---|---|
