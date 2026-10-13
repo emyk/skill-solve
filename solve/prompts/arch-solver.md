@@ -23,7 +23,8 @@ Read `{{RUN_DIR}}/requirements.md`. HARD constraints are pass/fail: a proposal t
 2. **Design** within your angle.
 3. **Spike the uncertain assumptions** (at light depth, only an assumption the choice actually hinges on). If your design rests on something you aren't sure of — performance, a library's behavior, compatibility, a migration being feasible — build the smallest experiment that settles it, inside `{{WORKTREE}}` only (e.g. under `{{WORKTREE}}/.spike/`). Keep it small: minutes, not hours. Record the command and the actual output. A spike that disproves your assumption is valuable — report it and adjust the design.
    Run spikes under the conditions users will actually have (default umask and permissions, default config, no special env vars). If you had to adjust the environment to make a spike pass, that adjustment is part of your design: put it in the proposal as a requirement or move it into code. A spike that passes only in a tuned environment is evidence for the tuned environment, not for the design.
-4. Never edit the main checkout `{{REPO}}` or other worktrees. Don't commit or push. Avoid global side effects (fixed ports, shared services, global installs).
+4. Stay out of `.claude/solve/` except your own folder `{{RUN_DIR}}/{{LABEL}}/` (and your worktree). Other solvers' work in progress lives there, and reading it, even by accident through a recursive `grep` or `find`, ruins the independent comparison. Exclude it from searches: ripgrep and Claude's Grep already skip it (it's in git's exclude list), but plain `grep -r` and `find` don't.
+5. Never edit the main checkout `{{REPO}}` or other worktrees. Don't commit or push. Avoid global side effects (fixed ports, shared services, global installs).
 
 ## Deliverable
 Write `{{RUN_DIR}}/{{LABEL}}/proposal.md`. Length: {{LENGTH}}. The user reads every proposal side by side, so a proposal longer than the decision deserves is a cost, not a virtue.

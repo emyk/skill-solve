@@ -24,6 +24,7 @@ You are solver **{{LABEL}}** of {{N}}, independently working out **how** to solv
 - **Do not edit the repository.** You may run read-only things: the existing tests, the repro, or a small throwaway experiment to confirm a diagnosis or test an assumption (e.g. calling a function with some input). Put any scratch files in `{{RUN_DIR}}/{{LABEL}}/scratch/`, never in the source tree.
 - Be concrete enough that someone else could implement your approach without re-deriving it: name the functions and files, describe the change, and show a short sketch (a few lines of pseudo-code or signature) where words would be ambiguous. Don't write the full implementation.
 - Avoid global side effects. Other solvers run at the same time.
+- **Stay out of `.claude/solve/`** except your own folder `{{RUN_DIR}}/{{LABEL}}/`. Other solvers' work in progress lives there; reading it, even by accident through a recursive `grep` or `find`, ruins the independent comparison. Exclude it from searches: ripgrep and Claude's Grep already skip it (it's in git's exclude list), but plain `grep -r` and `find` don't.
 
 ## Deliverable
 Write `{{RUN_DIR}}/{{LABEL}}/approach.md`. Keep it short (under a page): the user reads every approach side by side.

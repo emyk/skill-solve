@@ -34,7 +34,7 @@ Prompt templates live next to this file in `prompts/` and `templates/`. Read the
 ## 0. Setup
 
 - Parse flags out of the input: `--build`, `--mode code|arch` (else auto-detect), `--n N` (default 3, or 2 at ARCH light depth; clamp to 2..5 and say so if you clamp). The rest is the problem text. `--build` only applies to CODE; if it comes with an ARCH problem, say so and ignore it. `--light` / `--full` force the ARCH depth (see below).
-- **Solver letters.** Set `LABELS` once and use it everywhere below: the first N letters of `a b c d e` (default `a b c`). At ARCH light depth the order is `a c b d e`, so the default is `a c`.
+- **Solver letters.** `LABELS` is the first N letters of `a b c d e` (default `a b c`). At ARCH light depth the order is `a c b d e`, so the default is `a c`. Mode and depth are only settled in step 1, so once they are, rewrite the `LABELS=` line in `run.env` if it changed. Every later step reads it from there.
 - Locate the repo and create a run directory inside it, excluded from git locally so it never shows up in `git status`:
   ```bash
   REPO=$(git rev-parse --show-toplevel)
@@ -53,7 +53,7 @@ Prompt templates live next to this file in `prompts/` and `templates/`. Read the
   git -C "$REPO" branch --list 'solve/*' --format='%(refname:short)'
   ls -d "$REPO"/.claude/solve/*/ 2>/dev/null | grep -v "/$RUN_ID/"
   ```
-  If anything shows up, list it (run ids and dates; note any run dir that still holds a `solution.diff`, `approach.md` or `judgment.md`) and ask whether to remove it. Ask rather than delete, because a leftover may be an unapplied winning diff or a `/solve` run still going in another session. To remove a run `<ID>`: `git worktree remove --force` each `.claude/solve/<ID>/wt-*`, `git branch -D` its `solve/<ID>-*` branches, then `rm -rf .claude/solve/<ID>`. Touch only paths under `.claude/solve/` and branches under `solve/`, never other worktrees or branches.
+  If anything shows up, list it (run ids and dates; note any run dir that still holds a `solution.diff`, `approach.md`, `proposal.md`, `notes.md` or `judgment.md`) and ask whether to remove it. Ask rather than delete, because a leftover may be an unapplied winning diff or a `/solve` run still going in another session. To remove a run `<ID>`: `git worktree remove --force` each `.claude/solve/<ID>/wt-*`, `git branch -D` its `solve/<ID>-*` branches, then `rm -rf .claude/solve/<ID>`. Touch only paths under `.claude/solve/` and branches under `solve/`, never other worktrees or branches.
 - Not a git repo? The default CODE variant doesn't need one (put the run dir in a temp dir instead). `--build` and ARCH spikes need worktrees: ask whether to `git init` and commit a baseline, or to stop.
 
 ## 1. UNDERSTAND
@@ -154,7 +154,7 @@ Angles are assigned in order a, b, c, d, e, except at ARCH light depth, which us
 | d | reuse-first (library/stdlib/existing util) | incremental / evolutionary path |
 | e | change the data model so the bug can't exist | buy-not-build (off-the-shelf) |
 
-Launch **all solvers in a single message**: parallel `Agent` calls, general-purpose type, no `isolation` (they get their worktree path in the prompt). Keep each solver's agent ID (or name, where your tool supports names) so you can message it in step 4. Pass them what you learned in step 1 (restatement, relevant files, repro, requirements path) so they don't redo it, but never another solver's ideas. Wait until all have finished.
+Launch **all solvers in a single message**: parallel `Agent` calls, general-purpose type, no `isolation` (they get their worktree path in the prompt). Keep each solver's agent ID (or name, where your tool supports names) so you can message it in step 4. Pass them what you learned in step 1 (restatement, relevant files, repro, requirements path) so they don't redo it, but never another solver's ideas. The run folder sits inside the repo, so the solver prompts tell them not to search or read under `.claude/solve/` (except their own folder); other solvers' work in progress is there. Wait until all have finished.
 
 ## 3. VERIFY
 
@@ -207,7 +207,7 @@ The user decides, not the judge. Show **every** solution (disqualified ones incl
 
 ```
 ## /solve: <one-line problem>
-Mode: CODE · approaches only | CODE · --build | ARCH · Solvers: N · Judge: WINNER <L> | CLOSE CALL <L1> vs <L2>
+Mode: CODE · approaches only | CODE · --build | ARCH (light|full) · Solvers: N · Judge: WINNER <L> | CLOSE CALL <L1> vs <L2>
 
 ### a: <angle>: <one-line summary>          [judge's pick] / [disqualified: reason]
 <2–4 sentences: what it changes and where (`path:line`), and why that fixes it>
@@ -258,4 +258,4 @@ git -C "$REPO" worktree prune
 ```
 `--build` only: step 1 may have added a repro test to the user's working tree. If the user declined to apply a diff, ask whether to keep that test (it documents the bug) or remove it.
 
-After the user's decision has been carried out, delete `$RUN_DIR` (mention it first if they might want the other solutions' write-ups or diffs). Confirm that `git worktree list` and `git branch --list 'solve/*'` show nothing left from this run.
+After the user's decision has been carried out, delete the run folder (mention it first if they might want the other solutions' write-ups or diffs). Use its literal absolute path, `rm -r /abs/path/.claude/solve/<RUN_ID>`, not a variable: some tools' safety checks block `rm` on paths they can't resolve, and a literal path can't expand to something unintended. Confirm that `git worktree list` and `git branch --list 'solve/*'` show nothing left from this run.

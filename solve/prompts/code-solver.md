@@ -30,6 +30,7 @@ After you finish, the orchestrator restores a pristine copy of the repro files a
 - Match the codebase's style and conventions.
 - Don't commit or push. Don't add dependencies unless your angle calls for it and you justify it.
 - Avoid global side effects (fixed ports, shared databases, global installs) — other solvers run at the same time.
+- **Stay out of `.claude/solve/`** except your own folder `{{RUN_DIR}}/{{LABEL}}/` and your worktree `{{WORKTREE}}`. Other solvers' work in progress lives there; reading it, even by accident through a recursive `grep` or `find`, ruins the independent comparison. Exclude it from searches: ripgrep and Claude's Grep already skip it (it's in git's exclude list), but plain `grep -r` and `find` don't.
 - Run the verify and regression commands yourself before reporting, and add tests where your angle calls for it.
 
 ## Deliverable
