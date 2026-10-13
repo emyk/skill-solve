@@ -154,7 +154,7 @@ Angles are assigned in order a, b, c, d, e, except at ARCH light depth, which us
 | d | reuse-first (library/stdlib/existing util) | incremental / evolutionary path |
 | e | change the data model so the bug can't exist | buy-not-build (off-the-shelf) |
 
-Launch **all solvers in a single message**: parallel `Agent` calls, general-purpose type, no `isolation` (they get their worktree path in the prompt). Keep each solver's agent ID (or name, where your tool supports names) so you can message it in step 4. Pass them what you learned in step 1 (restatement, relevant files, repro, requirements path) so they don't redo it, but never another solver's ideas. The run folder sits inside the repo, so the solver prompts tell them not to search or read under `.claude/solve/` (except their own folder); other solvers' work in progress is there. Wait until all have finished.
+Launch **all solvers in a single message**: parallel `Agent` calls, general-purpose type, no `isolation` (worktree variants get their worktree path in the prompt; the others read the main checkout). Keep each solver's agent ID (or name, where your tool supports names) so you can message it in step 4. Pass them what you learned in step 1 (restatement, relevant files, repro, requirements path) so they don't redo it, but never another solver's ideas. The run folder sits inside the repo, so the solver prompts tell them not to search or read under `.claude/solve/` (except their own folder); other solvers' work in progress is there. Wait until all have finished.
 
 ## 3. VERIFY
 
