@@ -19,14 +19,17 @@ Read `{{RUN_DIR}}/requirements.md`. HARD constraints are pass/fail: a proposal t
 {{ANGLE}}
 
 ## How to work
-1. **Investigate the real codebase first** (it's at `{{WORKTREE}}`, a clean copy of the user's repo). Learn the current structure, the conventions, the dependencies already present, and the code your design would touch. A proposal that doesn't fit the code that exists is a proposal for a different project.
+1. **Investigate the real codebase first** (it's at `{{WORKTREE}}`: a clean copy of the user's repo, or at light depth without worktrees the main checkout, which is read-only for you; put scratch files in `{{RUN_DIR}}/{{LABEL}}/scratch/`). Learn the current structure, the conventions, the dependencies already present, and the code your design would touch. A proposal that doesn't fit the code that exists is a proposal for a different project.
 2. **Design** within your angle.
-3. **Spike the uncertain assumptions.** If your design rests on something you aren't sure of — performance, a library's behavior, compatibility, a migration being feasible — build the smallest experiment that settles it, inside `{{WORKTREE}}` only (e.g. under `{{WORKTREE}}/.spike/`). Keep it small: minutes, not hours. Record the command and the actual output. A spike that disproves your assumption is valuable — report it and adjust the design.
+3. **Spike the uncertain assumptions** (at light depth, only an assumption the choice actually hinges on). If your design rests on something you aren't sure of — performance, a library's behavior, compatibility, a migration being feasible — build the smallest experiment that settles it, inside `{{WORKTREE}}` only (e.g. under `{{WORKTREE}}/.spike/`). Keep it small: minutes, not hours. Record the command and the actual output. A spike that disproves your assumption is valuable — report it and adjust the design.
    Run spikes under the conditions users will actually have (default umask and permissions, default config, no special env vars). If you had to adjust the environment to make a spike pass, that adjustment is part of your design: put it in the proposal as a requirement or move it into code. A spike that passes only in a tuned environment is evidence for the tuned environment, not for the design.
-4. Never touch the main checkout `{{REPO}}` or other worktrees. Don't commit or push. Avoid global side effects (fixed ports, shared services, global installs).
+4. Never edit the main checkout `{{REPO}}` or other worktrees. Don't commit or push. Avoid global side effects (fixed ports, shared services, global installs).
 
 ## Deliverable
-Write `{{RUN_DIR}}/{{LABEL}}/proposal.md` — short, aim for 1–2 pages; a reviewer must be able to read all proposals in one sitting:
+Write `{{RUN_DIR}}/{{LABEL}}/proposal.md`. Length: {{LENGTH}}. The user reads every proposal side by side, so a proposal longer than the decision deserves is a cost, not a virtue.
+
+- **Full depth** ("1–2 pages"): use every section below.
+- **Light depth** ("under half a page, ~300 words"): keep Overview, Components (the concrete layout: what moves where), Migration path (as a short list of steps), Risks and trade-offs, Effort and Confidence, each in a few lines. Include a Diagram, Data flow or Evidence section only if it carries information the list doesn't.
 
 ```
 # Proposal {{LABEL}} — <angle name>: <one-line summary of the design>

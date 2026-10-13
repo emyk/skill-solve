@@ -22,6 +22,8 @@ For **each other solution**, give the **single strongest objection**: the one mo
 
 Don't rewrite your own solution and don't list nitpicks. One sharp objection per solution is worth more than five soft ones.
 
+{{LENGTH_NOTE}} (at ARCH light depth: "Keep each objection and each 'they do better' to 1–2 sentences."; otherwise leave this line out)
+
 Write `{{RUN_DIR}}/{{LABEL}}/critique.md`:
 
 ```

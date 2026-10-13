@@ -1,7 +1,7 @@
 ---
 name: solve
 description: Multi-agent "competing solutions" workflow for hard programming problems. Spawns 2-5 independent solver sub-agents that each attack the same problem from a different angle, has them critique each other, and has a fresh judge recommend one. Every option is then presented to the user, who approves which one to go with. By default solvers propose approaches without writing code; with --build they each implement and test a diff in their own git worktree. Handles CODE problems (a bug, failing behavior, algorithm or feature) and ARCHITECTURE problems (design decisions, patterns, data models, scaling, refactoring strategy → design proposals and an ADR). It is expensive, so use it ONLY when the user invokes /solve or explicitly asks for several competing/alternative approaches to be produced and compared (e.g. "have a few agents come up with different ways to fix this and pick the best"). Do NOT use it for ordinary bug fixes, features, design questions or reviews, however hard, unless the user asks for that multi-solver process.
-argument-hint: "<problem description> [--build] [--mode code|arch] [--n 2-5]"
+argument-hint: "<problem description> [--build] [--mode code|arch] [--light|--full] [--n 2-5]"
 ---
 
 # /solve: competing solutions, evidence-based pick, user approves
@@ -24,7 +24,7 @@ Prompt templates live next to this file in `prompts/` and `templates/`. Read the
 
 ## 0. Setup
 
-- Parse flags out of the input: `--build`, `--mode code|arch` (else auto-detect), `--n N` (default 3; clamp to 2..5 and say so if you clamp). The rest is the problem text. `--build` only applies to CODE; if it comes with an ARCH problem, say so and ignore it.
+- Parse flags out of the input: `--build`, `--mode code|arch` (else auto-detect), `--n N` (default 3; clamp to 2..5 and say so if you clamp). The rest is the problem text. `--build` only applies to CODE; if it comes with an ARCH problem, say so and ignore it. `--light` / `--full` force the ARCH depth (see below).
 - Locate the repo and create a run directory inside it, excluded from git locally so it never shows up in `git status`:
   ```bash
   REPO=$(git rev-parse --show-toplevel)
@@ -61,7 +61,7 @@ Prompt templates live next to this file in `prompts/` and `templates/`. Read the
    | "`/report` takes 8 s" (whole table scanned per request because of how events are stored) | ARCH | fixing it means changing the data model |
    | "Add retry to the HTTP client" | CODE | a feature with clear behavior, inside one module |
    | "Add caching to the API client" | ask | could be a small memoization (CODE) or an invalidation strategy shared across services (ARCH); depends on scope and priorities |
-   | "Split `utils.py`, it's 3000 lines" | ARCH | refactoring strategy: the new module boundaries are the decision |
+   | "Split `utils.py`, it's 3000 lines" | ARCH (light) | refactoring strategy: the new module boundaries are the decision, but it stays in one package and is easy to revert |
    | "Rename `get_user` to `fetch_user` everywhere" | CODE | mechanical, outcome checkable |
 3. **Ambiguity.** If the problem is ambiguous in a way that would change the solution, ask at most 2 questions (one message, use AskUserQuestion if available). Otherwise proceed. Don't ask for the sake of asking.
 
@@ -77,8 +77,24 @@ Here the oracle test is what makes the pick evidence-based, so get it right befo
 - Record `VERIFY_CMD` (fails now, must pass after), `REGRESSION_CMD` (the related existing tests, or the full suite if it is fast), `REPRO_FILES`, and the baseline output of both. Note tests that already fail on HEAD so solvers aren't blamed for them.
 - A repro that fails for the wrong reason (import error, missing fixture) is not a repro. Check that the failure message matches the reported bug.
 
+### ARCH: pick the depth first
+The ceremony must fit the size of the decision. A two-page proposal per solver for splitting one module is waste, and the user will stop reading.
+- **Light** applies when the decision stays inside one module or package, adds no new technology, dependency, data model or persistence, doesn't change an API that other teams or services consume, and is cheap to reverse. Examples: splitting a large file, choosing between two patterns for one component, reorganizing a package's internals.
+- **Full** applies to anything else: new technology or storage, data model changes, cross-module or service boundaries, scaling, or decisions that are costly to undo.
+
+Say which one and why in the same line as the mode, e.g. "ARCH (light): splitting `utils.py` stays inside one package and is easy to revert". The user can override it, or pass `--light` / `--full`.
+
+| | Light | Full |
+|---|---|---|
+| Requirements | 3–5 constraints and 2–4 weighted criteria, shown inline in chat, with one quick confirm | `requirements.md` as below, with the user approving it |
+| Proposal length | under half a page (~300 words) | 1–2 pages |
+| Diagram | only if it says more than a list | required |
+| Spikes / worktrees | only for an assumption the choice actually hinges on | for every uncertain key assumption |
+| Critique | 1–2 sentences per objection | as in `prompts/critique.md` |
+| After approval | implement now, or list the steps; ADR only if asked | ADR, then optionally steps |
+
 ### ARCH: requirements and criteria (user checkpoint)
-Write `$RUN_DIR/requirements.md` containing:
+(Light depth: the same content, condensed to a short inline list.) Write `$RUN_DIR/requirements.md` containing:
 - **Functional needs**, **scale/performance** expectations, **team & codebase conventions**, **existing dependencies** worth reusing, and **what must not break**.
 - Mark each constraint **HARD** (violating it disqualifies a proposal) or **SOFT**.
 - **Evaluation criteria with weights** summing to 100 (e.g. simplicity 25, fit with existing code 20, scalability 15, migration risk 20, effort 20), chosen for this problem rather than a generic list.
@@ -87,7 +103,7 @@ Show it to the user and **wait for approval or edits**. Every later step scores 
 
 ## 2. DIVERGE
 
-### Worktrees (`--build` and ARCH only)
+### Worktrees (`--build`, and ARCH full depth; ARCH light only if a spike is needed)
 Worktrees branch from HEAD, so they do NOT contain uncommitted work, including a repro you just wrote. Create them yourself (explicit paths make verification and cleanup reliable) and seed each with the current state:
 ```bash
 cd "$REPO"; git diff HEAD --binary > "$RUN_DIR/base.patch"
@@ -200,7 +216,8 @@ Then ask with AskUserQuestion in one call:
 2. **What next?** Choices depend on the variant:
    - CODE (default): "Implement it now" / "Just keep the plan"
    - `--build`: "Apply the diff to my working tree" / "Don't apply"
-   - ARCH: "Write the ADR and break it into steps" / "Write the ADR only"
+   - ARCH (full): "Write the ADR and break it into steps" / "Write the ADR only"
+   - ARCH (light): "Implement it now" / "Just list the steps" / "Write an ADR"
 
 ## 7. AFTER APPROVAL
 
@@ -212,7 +229,8 @@ Then ask with AskUserQuestion in one call:
   If implementation reveals the approach was wrong, stop and say so rather than silently switching approaches.
 - **CODE (default), keep the plan:** print the approved approach in full and offer to save it as a file.
 - **`--build`, apply:** `git apply "$RUN_DIR/<L>/solution.diff"` onto the working tree (the base changes, e.g. the repro test, are already there). Fold in any borrowed ideas, then re-run `VERIFY_CMD`.
-- **ARCH:**
+- **ARCH (light):** implement as for CODE (default), as a sequence of small steps that each keep the tests green, or print the steps. Write an ADR only if asked.
+- **ARCH (full):**
   1. Write the ADR. Find where the repo keeps decisions (`docs/decisions/`, `docs/adr/`, `doc/adr/`, `adr/`, `architecture/decisions/`) and follow its numbering and format. Otherwise use `docs/decisions/NNNN-<slug>.md` with `templates/adr.md`.
   2. Record the option the user chose as the decision, with status `Accepted`. If they overrode the judge, say so and give their reason in the rationale.
   3. If they asked for steps, write each implementation step as a self-contained `/solve --mode code …` prompt they can run later.
