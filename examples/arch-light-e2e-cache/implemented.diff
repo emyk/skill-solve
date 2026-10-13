@@ -1,0 +1,76 @@
+diff --git a/shop/catalog.py b/shop/catalog.py
+index af24a7f..1ec7985 100644
+--- a/shop/catalog.py
++++ b/shop/catalog.py
+@@ -1,3 +1,4 @@
++import copy
+ import os
+ 
+ from .utils import slugify, read_json, write_json, is_sku
+@@ -18,11 +19,27 @@ def load_catalog(path=CATALOG_PATH):
+         return json.load(f)
+ 
+ 
++# path -> ((st_ino, st_mtime_ns, st_size), catalog). Freshness comes from all three
++# together: inode numbers alone get reused, so mtime and size matter too.
++_cache = {}
++
++
+ def find_product(sku, path=CATALOG_PATH):
+-    return load_catalog(path).get(sku)
++    try:
++        st = os.stat(path)
++    except FileNotFoundError:
++        _cache.pop(path, None)
++        return None
++    key = (st.st_ino, st.st_mtime_ns, st.st_size)
++    cached = _cache.get(path)
++    if cached is None or cached[0] != key:
++        cached = (key, load_catalog(path))
++        _cache[path] = cached
++    return copy.deepcopy(cached[1].get(sku))
+ 
+ 
+ def save_product(sku, product, path=CATALOG_PATH):
+     catalog = load_catalog(path)
+     catalog[sku] = product
+     write_json(path, catalog)
++    _cache.pop(path, None)  # exact for saves in this process, whatever the clock resolution
+diff --git a/tests/test_catalog.py b/tests/test_catalog.py
+index f589966..42a39ee 100644
+--- a/tests/test_catalog.py
++++ b/tests/test_catalog.py
+@@ -12,3 +12,33 @@ def test_update_is_visible(tmp_path):
+     save_product("SKU1", {"name": "Mug"}, path)
+     save_product("SKU1", {"name": "Big Mug"}, path)
+     assert find_product("SKU1", path) == {"name": "Big Mug"}
++
++
++def test_unchanged_catalog_is_not_reparsed(tmp_path, monkeypatch):
++    import shop.catalog as catalog
++    path = str(tmp_path / "catalog.json")
++    save_product("SKU1", {"name": "Mug"}, path)
++    find_product("SKU1", path)
++    calls = []
++    real = catalog.load_catalog
++    monkeypatch.setattr(catalog, "load_catalog", lambda p=path: calls.append(p) or real(p))
++    for _ in range(5):
++        assert find_product("SKU1", path) == {"name": "Mug"}
++    assert calls == []
++
++
++def test_save_from_another_process_is_seen(tmp_path):
++    import subprocess, sys
++    path = str(tmp_path / "catalog.json")
++    save_product("SKU1", {"name": "Mug"}, path)
++    assert find_product("SKU1", path) == {"name": "Mug"}
++    subprocess.run([sys.executable, "-c",
++        f"from shop.catalog import save_product; save_product('SKU1', {{'name': 'Cup'}}, {path!r})"], check=True)
++    assert find_product("SKU1", path) == {"name": "Cup"}
++
++
++def test_mutating_a_result_does_not_change_the_cache(tmp_path):
++    path = str(tmp_path / "catalog.json")
++    save_product("SKU1", {"name": "Mug", "price": 10}, path)
++    find_product("SKU1", path)["price"] = 8
++    assert find_product("SKU1", path)["price"] == 10

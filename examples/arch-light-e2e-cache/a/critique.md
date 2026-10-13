@@ -1,0 +1,10 @@
+# Critique by a
+## On c
+Objection: c caches inside `load_catalog` and hands every caller the same shared objects. If a caller mutates a product returned by `find_product` (for example, setting a display price), the next `find_product` returns the mutated value even though the file on disk is unchanged. The next unrelated `save_product` then writes that mutation into catalog.json, because `dict(load_catalog(path))` is only a shallow copy and the product dicts inside are still shared.
+Grounding: HARD requirement "never serve stale data". `shop/catalog.py:12-28`: before this change, `load_catalog` returned a fresh dict on every call, so callers were free to mutate it. Experiment: I built c's design as described in `a/scratch/cimpl/`, saved SKU1 with price 10, then ran `find_product(...)['price'] = 8`. The next `find_product` returned price 8 while the disk still said 10. After `save_product('SKU2', ...)`, **the disk said 8**. Under the same steps, a's design returned 10. c's own risk list mentions "callers must not mutate it", but it treats this as a caller rule instead of a correctness risk.
+Severity: major. Today's code doesn't mutate results, so this isn't fatal now, but it silently changes the `load_catalog` contract and can corrupt persisted data. The fix is a deepcopy, which costs speed.
+They do better than me: holding the fd open makes the inode check exact even against inode reuse. c also puts the cache in one place, `load_catalog`, so `save_product`'s read is cached too.
+
+## On my own
+Objection: I also revalidate only on file identity and metadata (inode, mtime_ns, size). A non-atomic, in-place writer that keeps the same size within one mtime tick would be missed, and that's possible on coarse-timestamp filesystems or NFS attribute caching. My `deepcopy` on every hit also costs time on large product records, which counts against the 20% speed criterion.
+Severity: minor. Every writer in the repo goes through `atomic_write`, so every save gets a new inode, and the spike measured 0/300 stale reads.
