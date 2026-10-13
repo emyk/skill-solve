@@ -19,9 +19,9 @@ Read `{{RUN_DIR}}/requirements.md`. HARD constraints are pass/fail: a proposal t
 {{ANGLE}}
 
 ## How to work
-1. **Investigate the real codebase first** (it's at `{{WORKTREE}}`: a clean copy of the user's repo, or at light depth without worktrees the main checkout, which is read-only for you; put scratch files in `{{RUN_DIR}}/{{LABEL}}/scratch/`). Learn the current structure, the conventions, the dependencies already present, and the code your design would touch. A proposal that doesn't fit the code that exists is a proposal for a different project.
+1. **Investigate the real codebase first.** At full depth it's your worktree `{{WORKTREE}}`, a clean copy of the user's repo. At light depth there is no worktree: read the main checkout `{{REPO}}`, which is read-only for you. Learn the current structure, the conventions, the dependencies already present, and the code your design would touch. A proposal that doesn't fit the code that exists is a proposal for a different project.
 2. **Design** within your angle.
-3. **Spike the uncertain assumptions** (at light depth, only an assumption the choice actually hinges on). If your design rests on something you aren't sure of — performance, a library's behavior, compatibility, a migration being feasible — build the smallest experiment that settles it, inside `{{WORKTREE}}` only (e.g. under `{{WORKTREE}}/.spike/`). Keep it small: minutes, not hours. Record the command and the actual output. A spike that disproves your assumption is valuable — report it and adjust the design.
+3. **Spike the uncertain assumptions** (at light depth, only an assumption the choice actually hinges on). If your design rests on something you aren't sure of — performance, a library's behavior, compatibility, a migration being feasible — build the smallest experiment that settles it. At full depth, build it inside your worktree only (e.g. `{{WORKTREE}}/.spike/`). At light depth, build it in `{{RUN_DIR}}/{{LABEL}}/scratch/`, copying in only the files you need; never write into `{{REPO}}`. Keep it small: minutes, not hours. Record the command and the actual output. A spike that disproves your assumption is valuable — report it and adjust the design.
    Run spikes under the conditions users will actually have (default umask and permissions, default config, no special env vars). If you had to adjust the environment to make a spike pass, that adjustment is part of your design: put it in the proposal as a requirement or move it into code. A spike that passes only in a tuned environment is evidence for the tuned environment, not for the design.
 4. Stay out of `.claude/solve/` except your own folder `{{RUN_DIR}}/{{LABEL}}/` (and your worktree). Other solvers' work in progress lives there, and reading it, even by accident through a recursive `grep` or `find`, ruins the independent comparison. Exclude it from searches: ripgrep and Claude's Grep already skip it (it's in git's exclude list), but plain `grep -r` and `find` don't.
 5. Never edit the main checkout `{{REPO}}` or other worktrees. Don't commit or push. Avoid global side effects (fixed ports, shared services, global installs).
@@ -68,7 +68,7 @@ Also write `{{RUN_DIR}}/{{LABEL}}/notes.md`. A critic or judge who didn't share 
 ## Read
 - `path:line`: what it showed (only what mattered)
 ## Ran
-- `exact command` → actual result (failures too)
+- `exact command` (and the directory you ran it from, or absolute paths) → actual result (failures too)
 ## Rejected
 - alternative you considered: why you dropped it
 ## Doubts

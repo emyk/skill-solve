@@ -24,7 +24,7 @@ If subagents can't run in parallel, run them one after another. They must still 
 |---|---|---|---|
 | Solvers produce | an approach (`approach.md`), no code | a tested diff, each in its own worktree | a design proposal (`proposal.md`) with spikes |
 | Plus, always | working notes (`notes.md`): what was read, run, rejected, doubted | same | same |
-| Worktrees | none | yes | full depth: yes (for spikes); light: only if a spike is needed |
+| Worktrees | none | yes | full depth: yes (for spikes); light: none (spikes go in the solver's scratch folder) |
 | Evidence | code references and read-only checks | the oracle test run on every diff | spikes and constraint checks |
 | Critique round | yes | no (tests are the critique) | yes |
 | After approval | implement the chosen approach once, test-first | apply the chosen diff | full: write the ADR, offer implementation steps; light: implement or list steps, ADR only if asked |
@@ -54,7 +54,7 @@ Prompt templates live next to this file in `prompts/` and `templates/`. Read the
   ls -d "$REPO"/.claude/solve/*/ 2>/dev/null | grep -v "/$RUN_ID/"
   ```
   If anything shows up, list it (run ids and dates; note any run dir that still holds a `solution.diff`, `approach.md`, `proposal.md`, `notes.md` or `judgment.md`) and ask whether to remove it. Ask rather than delete, because a leftover may be an unapplied winning diff or a `/solve` run still going in another session. To remove a run `<ID>`: `git worktree remove --force` each `.claude/solve/<ID>/wt-*`, `git branch -D` its `solve/<ID>-*` branches, then `rm -rf .claude/solve/<ID>`. Touch only paths under `.claude/solve/` and branches under `solve/`, never other worktrees or branches.
-- Not a git repo? The default CODE variant doesn't need one (put the run dir in a temp dir instead). `--build` and ARCH spikes need worktrees: ask whether to `git init` and commit a baseline, or to stop.
+- Not a git repo? The default CODE variant and ARCH light depth don't need one (put the run dir in a temp dir instead). `--build` and ARCH full depth need worktrees: ask whether to `git init` and commit a baseline, or to stop.
 
 ## 1. UNDERSTAND
 
@@ -103,7 +103,7 @@ Say which one and why in the same line as the mode, e.g. "ARCH (light): splittin
 | Requirements | 3–5 constraints and 2–4 weighted criteria, shown inline in chat, with one quick confirm | `requirements.md` as below, with the user approving it |
 | Proposal length | under half a page (~300 words) | 1–2 pages |
 | Diagram | only if it says more than a list | required |
-| Spikes / worktrees | only for an assumption the choice actually hinges on | for every uncertain key assumption |
+| Spikes / worktrees | no worktrees; spike only an assumption the choice hinges on, in the solver's scratch folder | a worktree per solver; spike every uncertain key assumption |
 | Critique | 1–2 sentences per objection | as in `prompts/critique.md` |
 | After approval | implement now, or list the steps; ADR only if asked | ADR, then optionally steps |
 
@@ -117,7 +117,7 @@ Show it to the user and **wait for approval or edits**. Every later step scores 
 
 ## 2. DIVERGE
 
-### Worktrees (`--build`, and ARCH full depth; ARCH light only if a spike is needed)
+### Worktrees (`--build` and ARCH full depth only)
 Worktrees branch from HEAD, so they do NOT contain uncommitted work, including a repro you just wrote. Create them yourself (explicit paths make verification and cleanup reliable) and seed each with the current state:
 ```bash
 cd "$REPO"; git diff HEAD --binary > "$RUN_DIR/base.patch"
@@ -136,7 +136,7 @@ A worktree is a bare checkout, which causes two common problems:
 
 **`--build`: run `VERIFY_CMD` in one fresh worktree before launching solvers.** It must fail the same way it does in the main tree, which proves the oracle works inside worktrees.
 
-For the default CODE variant, just `for L in $LABELS; do mkdir -p "$RUN_DIR/$L"; done`. Solvers read the main checkout and don't edit it.
+For the default CODE variant and ARCH light depth, just `for L in $LABELS; do mkdir -p "$RUN_DIR/$L/scratch"; done`. Solvers read the main checkout and never write to it; anything they run or build goes in their scratch folder.
 
 ### Launch
 Prompts:

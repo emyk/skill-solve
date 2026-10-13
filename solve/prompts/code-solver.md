@@ -57,7 +57,7 @@ Also write `{{RUN_DIR}}/{{LABEL}}/notes.md`. A critic or judge who didn't share 
 ## Read
 - `path:line`: what it showed (only what mattered)
 ## Ran
-- `exact command` → actual result (failures too)
+- `exact command` (and the directory you ran it from, or absolute paths) → actual result (failures too)
 ## Rejected
 - alternative you considered: why you dropped it
 ## Doubts
