@@ -1,6 +1,6 @@
 ---
 name: solve
-description: Multi-agent "competing solutions" workflow for hard programming problems. Spawns 2-5 independent solver sub-agents that each attack the same problem from a different angle, has them critique each other, and has a fresh judge recommend one. Every option is then presented to the user, who approves which one to go with. By default solvers propose approaches without writing code; with --build they each implement and test a diff in their own git worktree. Handles CODE problems (a bug, failing behavior, algorithm or feature) and ARCHITECTURE problems (design decisions, patterns, data models, scaling, refactoring strategy → design proposals and an ADR). It is expensive, so use it ONLY when the user invokes /solve or explicitly asks for several competing/alternative approaches to be produced and compared (e.g. "have a few agents come up with different ways to fix this and pick the best"). Do NOT use it for ordinary bug fixes, features, design questions or reviews, however hard, unless the user asks for that multi-solver process.
+description: Multi-agent "competing solutions" workflow for hard programming problems. Spawns 2-5 independent solver sub-agents that attack the same problem from different angles, has them critique each other, and has a fresh judge recommend one; the user sees every option and approves which to go with. By default solvers propose approaches without writing code; with --build each implements and tests a diff in its own git worktree. Handles CODE problems (bug, failing behavior, algorithm, feature) and ARCHITECTURE problems (design decisions, patterns, data models, scaling, refactoring strategy → design proposals and an ADR). It is expensive: use it ONLY when the user invokes /solve or explicitly asks for several competing approaches to be produced and compared (e.g. "have a few agents come up with different ways to fix this and pick the best"). Do NOT use it for ordinary bug fixes, features, design questions or reviews, however hard.
 argument-hint: "<problem description> [--build] [--mode code|arch] [--light|--full] [--n 2-5]"
 ---
 
@@ -23,16 +23,17 @@ If subagents can't run in parallel, run them one after another. They must still 
 | | CODE (default) | CODE `--build` | ARCH |
 |---|---|---|---|
 | Solvers produce | an approach (`approach.md`), no code | a tested diff, each in its own worktree | a design proposal (`proposal.md`) with spikes |
-| Worktrees | none | yes | yes (for spikes) |
+| Worktrees | none | yes | full depth: yes (for spikes); light: only if a spike is needed |
 | Evidence | code references and read-only checks | the oracle test run on every diff | spikes and constraint checks |
 | Critique round | yes | no (tests are the critique) | yes |
-| After approval | implement the chosen approach once, test-first | apply the chosen diff | write the ADR, offer implementation steps |
+| After approval | implement the chosen approach once, test-first | apply the chosen diff | full: write the ADR, offer implementation steps; light: implement or list steps, ADR only if asked |
 
 Prompt templates live next to this file in `prompts/` and `templates/`. Read the ones for the active variant when you reach the step that uses them, and fill every `{{PLACEHOLDER}}` before sending. Angle texts for CODE are in `prompts/code-angles.md`.
 
 ## 0. Setup
 
 - Parse flags out of the input: `--build`, `--mode code|arch` (else auto-detect), `--n N` (default 3, or 2 at ARCH light depth; clamp to 2..5 and say so if you clamp). The rest is the problem text. `--build` only applies to CODE; if it comes with an ARCH problem, say so and ignore it. `--light` / `--full` force the ARCH depth (see below).
+- **Solver letters.** Set `LABELS` once and use it everywhere below: the first N letters of `a b c d e` (default `a b c`). At ARCH light depth the order is `a c b d e`, so the default is `a c`.
 - Locate the repo and create a run directory inside it, excluded from git locally so it never shows up in `git status`:
   ```bash
   REPO=$(git rev-parse --show-toplevel)
@@ -103,7 +104,7 @@ Say which one and why in the same line as the mode, e.g. "ARCH (light): splittin
 | After approval | implement now, or list the steps; ADR only if asked | ADR, then optionally steps |
 
 ### ARCH: requirements and criteria (user checkpoint)
-(Light depth: the same content, condensed to a short inline list.) Write `$RUN_DIR/requirements.md` containing:
+Always write `$RUN_DIR/requirements.md`, because solvers and the judge read it. At light depth keep it to a short list and show it inline in chat. It contains:
 - **Functional needs**, **scale/performance** expectations, **team & codebase conventions**, **existing dependencies** worth reusing, and **what must not break**.
 - Mark each constraint **HARD** (violating it disqualifies a proposal) or **SOFT**.
 - **Evaluation criteria with weights** summing to 100 (e.g. simplicity 25, fit with existing code 20, scalability 15, migration risk 20, effort 20), chosen for this problem rather than a generic list.
@@ -116,7 +117,7 @@ Show it to the user and **wait for approval or edits**. Every later step scores 
 Worktrees branch from HEAD, so they do NOT contain uncommitted work, including a repro you just wrote. Create them yourself (explicit paths make verification and cleanup reliable) and seed each with the current state:
 ```bash
 cd "$REPO"; git diff HEAD --binary > "$RUN_DIR/base.patch"
-for L in a b c; do                 # one letter per solver
+for L in $LABELS; do
   WT="$RUN_DIR/wt-$L"
   git worktree add -q -b "solve/$RUN_ID-$L" "$WT" HEAD
   [ -s "$RUN_DIR/base.patch" ] && git -C "$WT" apply "$RUN_DIR/base.patch"
@@ -131,7 +132,7 @@ A worktree is a bare checkout, which causes two common problems:
 
 **`--build`: run `VERIFY_CMD` in one fresh worktree before launching solvers.** It must fail the same way it does in the main tree, which proves the oracle works inside worktrees.
 
-For the default CODE variant, just `mkdir -p "$RUN_DIR"/{a,b,c}`. Solvers read the main checkout and don't edit it.
+For the default CODE variant, just `for L in $LABELS; do mkdir -p "$RUN_DIR/$L"; done`. Solvers read the main checkout and don't edit it.
 
 ### Launch
 Prompts:
@@ -248,7 +249,9 @@ Then ask, with AskUserQuestion in one call if you have it, otherwise as one shor
 
 Save anything still needed before removing worktrees (diffs are in `$RUN_DIR`). If the run created worktrees:
 ```bash
-for L in a b c; do git -C "$REPO" worktree remove --force "$RUN_DIR/wt-$L"; git -C "$REPO" branch -D "solve/$RUN_ID-$L"; done
+for L in $LABELS; do git -C "$REPO" worktree remove --force "$RUN_DIR/wt-$L"; git -C "$REPO" branch -D "solve/$RUN_ID-$L"; done
 git -C "$REPO" worktree prune
 ```
+`--build` only: step 1 may have added a repro test to the user's working tree. If the user declined to apply a diff, ask whether to keep that test (it documents the bug) or remove it.
+
 After the user's decision has been carried out, delete `$RUN_DIR` (mention it first if they might want the other solutions' write-ups or diffs). Confirm that `git worktree list` and `git branch --list 'solve/*'` show nothing left from this run.

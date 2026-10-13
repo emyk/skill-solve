@@ -24,8 +24,10 @@ cp -r solve ~/.claude/skills/
 2. Install the skill, ideally in both places:
 
    ```bash
-   cp -r solve ~/.copilot/skills/                # personal, all projects
-   mkdir -p .github/skills && cp -r solve .github/skills/   # per project, if the personal folder isn't picked up
+   # from your clone of this repo:
+   cp -r solve ~/.copilot/skills/                                    # personal, all projects
+   # if the personal folder isn't picked up, add it to a project instead:
+   mkdir -p /path/to/project/.github/skills && cp -r solve /path/to/project/.github/skills/
    ```
 
 3. In agent mode, ask "which skills do you have?" to confirm `solve` is listed.

@@ -2,7 +2,7 @@
 
 Send to each surviving solver via SendMessage (preferred, because it keeps the solver's own investigation in context). If that isn't possible, send it to a fresh agent and prepend: "You are standing in for solver {{LABEL}}, whose work is `{{RUN_DIR}}/{{LABEL}}/{{DOC}}`. Read it first and argue from that position."
 
-`{{DOC}}` is `approach.md` (CODE) or `proposal.md` (ARCH). `{{CRITERIA}}` is `{{RUN_DIR}}/requirements.md` (ARCH), or the problem statement plus how a fix would be verified (CODE).
+`{{DOC}}` is `approach.md` (CODE) or `proposal.md` (ARCH). `{{CHECK_WHERE}}` is where the solver may run checks: its worktree if it has one, otherwise `{{RUN_DIR}}/{{LABEL}}/scratch/` (never the repo). `{{CRITERIA}}` is `{{RUN_DIR}}/requirements.md` (ARCH), or the problem statement plus how a fix would be verified (CODE).
 
 ---
 

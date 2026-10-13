@@ -27,6 +27,15 @@
       "files": [
         "fixtures/textstats-repo"
       ]
+    },
+    {
+      "id": 4,
+      "name": "arch-light-utils-split",
+      "prompt": "/solve Split shop/utils.py, it's a grab-bag of helpers used everywhere",
+      "expected_output": "ARCH (light) detected with reason; short requirements.md shown inline; 2 solvers (angles a and c), no worktrees unless a spike is needed; proposals under ~300 words; short critiques; judge; all options presented; options Implement now / List steps / Write an ADR.",
+      "files": [
+        "fixtures/shop-repo"
+      ]
     }
   ]
 }
