@@ -41,7 +41,10 @@ Prompt templates live next to this file in `prompts/` and `templates/`. Read the
   RUN_DIR="$REPO/.claude/solve/$RUN_ID"; mkdir -p "$RUN_DIR"
   EXCL="$(git rev-parse --path-format=absolute --git-common-dir)/info/exclude"; mkdir -p "$(dirname "$EXCL")"
   grep -qxF '.claude/solve/' "$EXCL" 2>/dev/null || echo '.claude/solve/' >> "$EXCL"
+  printf 'REPO=%q\nRUN_ID=%q\nRUN_DIR=%q\nLABELS=%q\n' "$REPO" "$RUN_ID" "$RUN_DIR" "a b c" > "$RUN_DIR/run.env"   # use your LABELS
+  echo "$RUN_DIR/run.env"
   ```
+  **Shell variables don't survive between commands** (each tool call may start a fresh shell). Start every later command in this skill with `. <absolute path printed above>`, written out literally, and `: "${RUN_DIR:?}" "${LABELS:?}"`. An empty `$LABELS` would make the cleanup loop silently do nothing, and an empty `$RUN_DIR` would put worktrees in `/`.
 - **Leftovers from earlier runs.** An interrupted run (Ctrl-C, crashed session) can leave worktrees, branches and run dirs behind. Check before creating new ones:
   ```bash
   git -C "$REPO" worktree prune
@@ -150,7 +153,7 @@ Angles are assigned in order a, b, c, d, e, except at ARCH light depth, which us
 | d | reuse-first (library/stdlib/existing util) | incremental / evolutionary path |
 | e | change the data model so the bug can't exist | buy-not-build (off-the-shelf) |
 
-Launch **all solvers in a single message**: parallel `Agent` calls, general-purpose type, no `isolation` (they get their worktree path in the prompt). Give each a short name like `solver-a` so you can message it later. Pass them what you learned in step 1 (restatement, relevant files, repro, requirements path) so they don't redo it, but never another solver's ideas. Wait until all have finished.
+Launch **all solvers in a single message**: parallel `Agent` calls, general-purpose type, no `isolation` (they get their worktree path in the prompt). Keep each solver's agent ID (or name, where your tool supports names) so you can message it in step 4. Pass them what you learned in step 1 (restatement, relevant files, repro, requirements path) so they don't redo it, but never another solver's ideas. Wait until all have finished.
 
 ## 3. VERIFY
 
@@ -167,7 +170,7 @@ For each solver, in its worktree:
 ```bash
 git -C "$WT" add -A && git -C "$WT" diff --cached "$(cat $RUN_DIR/base-$L.sha)" > "$RUN_DIR/$L/solution.diff"
 ```
-Then restore the canonical repro files over the solver's copy. A solver that edited the test to pass must not get credit, so flag it if the diff touches them. Run `VERIFY_CMD` and `REGRESSION_CMD` from the worktree and save the outputs to `$RUN_DIR/$L/verify.txt`.
+Then copy the canonical repro files from the main checkout over the solver's copy. A solver that edited the test to pass must not get credit, so flag it if the diff touches them. Run `VERIFY_CMD` and `REGRESSION_CMD` from the worktree and save the outputs to `$RUN_DIR/$L/verify.txt`.
 
 A solution **fails** if any of these hold, and you record the reason:
 - the repro still fails
